@@ -1,0 +1,49 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: backend.Dockerfile  # Make sure it's named correctly
+    ports:
+      - "8000:8000"  # FastAPI default
+    networks:
+      - mern_network
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: mydatabase
+      DB_USER: myuser
+      DB_PASSWORD: mypassword
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: frontend.Dockerfile
+    ports:
+      - "3000:3000"  # React default
+    networks:
+      - mern_network
+    environment:
+      REACT_APP_API_URL: http://localhost:8000
+
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: mydatabase
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+    ports:
+      - "5432:5432"
+    networks:
+      - mern_network
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+networks:
+  mern_network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+
