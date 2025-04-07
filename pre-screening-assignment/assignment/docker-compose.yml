@@ -4,7 +4,7 @@ services:
       context: ./backend
       dockerfile: backend.Dockerfile  # Make sure it's named correctly
     ports:
-      - "8000:8000"  # FastAPI default
+      - "8000:80"  # FastAPI default
     networks:
       - mern_network
     environment:
