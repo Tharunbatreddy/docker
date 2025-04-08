@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from database import get_db_connection
 from fastapi.middleware.cors import CORSMiddleware
+from passlib.context import CryptContext
 import time
 import psycopg2
 
@@ -17,6 +18,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Password encryption
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 class User(BaseModel):
     username: str
     password: str
@@ -26,7 +30,8 @@ async def create_user(user: User):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        cur.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (user.username, user.password))
+        hashed_password = pwd_context.hash(user.password)
+        cur.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (user.username, hashed_password))
         conn.commit()
         return {"message": "User created successfully!"}
     except Exception as e:
@@ -40,9 +45,9 @@ async def login(user: User):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT * FROM users WHERE username = %s AND password = %s", (user.username, user.password))
+        cur.execute("SELECT password FROM users WHERE username = %s", (user.username,))
         result = cur.fetchone()
-        if result:
+        if result and pwd_context.verify(user.password, result[0]):
             return {"message": "Login successful!"}
         else:
             raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -64,7 +69,7 @@ async def startup_event():
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
                     username VARCHAR(255) UNIQUE NOT NULL,
-                    password VARCHAR(10) NOT NULL
+                    password VARCHAR(255) NOT NULL
                 )
             """)
             conn.commit()
@@ -72,7 +77,7 @@ async def startup_event():
             conn.close()
             print("Database initialized.")
             break
-        except psycopg2.OperationalError as e:
+        except psycopg2.OperationalError:
             print("Database not ready, retrying...")
             retries -= 1
             time.sleep(2)
